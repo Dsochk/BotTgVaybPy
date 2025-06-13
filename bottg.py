@@ -35,7 +35,7 @@ async def login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         cursor.close()
         conn.close()
         if user:
-            session_token = user['id']  # Используем ID пользователя как токен
+            session_token = user['id']
             await update.message.reply_text('Авторизация успешна.')
         else:
             await update.message.reply_text('Ошибка авторизации. Неверный логин или пароль.')
@@ -142,11 +142,13 @@ async def run_http_server():
     app.add_routes([web.get('/', lambda request: web.Response(text="Bot is running"))])
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 8080)
+    site = web.TCPSite(runner, '0.0.0.0', int(os.getenv("PORT", 8080)))  # Используем PORT от Render
     await site.start()
+    print("HTTP-сервер запущен на порту", os.getenv("PORT", 8080))
 
 # Основная функция для запуска бота и HTTP-сервера
 async def main():
+    # Создаем приложение Telegram
     application = Application.builder().token(TOKEN).build()
 
     # Добавление обработчиков команд
@@ -163,8 +165,21 @@ async def main():
     # Запуск HTTP-сервера
     await run_http_server()
 
-    # Запуск бота
-    await application.run_polling()
+    # Инициализация и запуск polling'а
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
 
+    # Бесконечный цикл для удержания приложения
+    while True:
+        await asyncio.sleep(3600)  # Спим 1 час, чтобы не нагружать CPU
+
+# Запуск приложения
 if __name__ == '__main__':
-    asyncio.run(main())
+    loop = asyncio.get_event_loop()
+    try:
+        loop.run_until_complete(main())
+    except KeyboardInterrupt:
+        loop.run_until_complete(application.updater.stop())
+        loop.run_until_complete(application.stop())
+        loop.close()
