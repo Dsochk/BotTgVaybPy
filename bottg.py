@@ -2,6 +2,8 @@ import os
 import mysql.connector
 from telegram import Update, BotCommand
 from telegram.ext import Application, CommandHandler, ContextTypes
+from aiohttp import web
+import asyncio
 
 # Настройка токена и конфигурации базы данных
 TOKEN = '7671395940:AAHwqDqy-PD8OfhFdjvCIjTE2u2yQ2yZ7wo'
@@ -134,8 +136,17 @@ async def set_commands(application):
     ]
     await application.bot.set_my_commands(commands)
 
-# Основная функция для запуска бота
-def main() -> None:
+# Простой HTTP-сервер для Render.com
+async def run_http_server():
+    app = web.Application()
+    app.add_routes([web.get('/', lambda request: web.Response(text="Bot is running"))])
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', 8080)
+    await site.start()
+
+# Основная функция для запуска бота и HTTP-сервера
+async def main():
     application = Application.builder().token(TOKEN).build()
 
     # Добавление обработчиков команд
@@ -147,10 +158,13 @@ def main() -> None:
     application.add_handler(CommandHandler("delete", delete_task))
 
     # Установка команд в меню
-    application.post_init = set_commands
+    await set_commands(application)
+
+    # Запуск HTTP-сервера
+    await run_http_server()
 
     # Запуск бота
-    application.run_polling()
+    await application.run_polling()
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
