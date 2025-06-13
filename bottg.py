@@ -5,7 +5,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 # Настройка токена и базового URL
 TOKEN = '7671395940:AAHwqDqy-PD8OfhFdjvCIjTE2u2yQ2yZ7wo'
-BASE_URL = 'https://newvaybcodingtrue.onrender.com/'
+BASE_URL = 'https://newvaybcodingtrue.onrender.com/login/'
 session_token = None
 
 # Команда /login - вход в систему
