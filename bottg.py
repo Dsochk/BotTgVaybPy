@@ -6,11 +6,11 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 # Настройка токена и конфигурации базы данных
 TOKEN = '7671395940:AAHwqDqy-PD8OfhFdjvCIjTE2u2yQ2yZ7wo'
 db_config = {
-    'host': 'sql7.freesqldatabase.com',  # например, 'localhost' или IP-адрес сервера
+    'host': 'sql7.freesqldatabase.com',
     'user': 'sql7784455',
     'password': 'xxB1ERVxEi',
     'database': 'sql7784455',
-    'port': 3306  # порт по умолчанию для MySQL
+    'port': 3306
 }
 session_token = None  # Хранит ID пользователя после авторизации
 
@@ -68,7 +68,7 @@ async def list_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT id, text FROM tasks WHERE user_id = %s", (session_token,))
+        cursor.execute("SELECT id, text FROM items WHERE user_id = %s", (session_token,))
         items = cursor.fetchall()
         cursor.close()
         conn.close()
@@ -93,7 +93,7 @@ async def add_task(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO tasks (text, user_id) VALUES (%s, %s)", (text, session_token))
+        cursor.execute("INSERT INTO items (text, user_id) VALUES (%s, %s)", (text, session_token))
         conn.commit()
         cursor.close()
         conn.close()
@@ -114,7 +114,7 @@ async def delete_task(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM tasks WHERE id = %s AND user_id = %s", (task_id, session_token))
+        cursor.execute("DELETE FROM items WHERE id = %s AND user_id = %s", (task_id, session_token))
         conn.commit()
         cursor.close()
         conn.close()
