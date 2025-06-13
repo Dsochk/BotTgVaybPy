@@ -1,12 +1,22 @@
 import os
-import requests
+import mysql.connector
 from telegram import Update, BotCommand
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-# Настройка токена и базового URL
+# Настройка токена и конфигурации базы данных
 TOKEN = '7671395940:AAHwqDqy-PD8OfhFdjvCIjTE2u2yQ2yZ7wo'
-BASE_URL = 'https://newvaybcodingtrue.onrender.com/login/'
-session_token = None
+db_config = {
+    'host': 'sql7.freesqldatabase.com',  # например, 'localhost' или IP-адрес сервера
+    'user': 'sql7784455',
+    'password': 'xxB1ERVxEi',
+    'database': 'sql7784455',
+    'port': 3306  # порт по умолчанию для MySQL
+}
+session_token = None  # Хранит ID пользователя после авторизации
+
+# Функция для подключения к БД
+def get_db_connection():
+    return mysql.connector.connect(**db_config)
 
 # Команда /login - вход в систему
 async def login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -16,12 +26,19 @@ async def login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     login, password = context.args
     try:
-        response = requests.post(f'{BASE_URL}/login', json={'login': login, 'password': password})
-        response.raise_for_status()
-        session_token = response.json()['token']
-        await update.message.reply_text('Авторизация успешна.')
-    except requests.exceptions.RequestException:
-        await update.message.reply_text('Ошибка авторизации. Неверный логин или пароль.')
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM users WHERE login = %s AND password = %s", (login, password))
+        user = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        if user:
+            session_token = user['id']  # Используем ID пользователя как токен
+            await update.message.reply_text('Авторизация успешна.')
+        else:
+            await update.message.reply_text('Ошибка авторизации. Неверный логин или пароль.')
+    except Exception as e:
+        await update.message.reply_text(f'Ошибка: {str(e)}')
 
 # Команда /logout - выход из учетной записи
 async def logout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -49,17 +66,19 @@ async def list_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await update.message.reply_text('Ошибка: вы не авторизованы. Используйте /login <login> <password>.')
         return
     try:
-        headers = {'Authorization': f'Bearer {session_token}'}
-        response = requests.get(f'{BASE_URL}/api/items', headers=headers)
-        response.raise_for_status()
-        items = response.json()
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT id, text FROM tasks WHERE user_id = %s", (session_token,))
+        items = cursor.fetchall()
+        cursor.close()
+        conn.close()
         if items:
             message = '\n'.join([f"{index + 1} / {item['text']} / [{item['id']}]" for index, item in enumerate(items)])
         else:
             message = 'Список пуст.'
         await update.message.reply_text(message)
-    except requests.exceptions.RequestException:
-        await update.message.reply_text('Ошибка получения списка.')
+    except Exception as e:
+        await update.message.reply_text(f'Ошибка: {str(e)}')
 
 # Команда /add - добавить задачу
 async def add_task(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -72,12 +91,15 @@ async def add_task(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     text = ' '.join(context.args)
     try:
-        headers = {'Authorization': f'Bearer {session_token}'}
-        response = requests.post(f'{BASE_URL}/add', json={'text': text}, headers=headers)
-        response.raise_for_status()
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO tasks (text, user_id) VALUES (%s, %s)", (text, session_token))
+        conn.commit()
+        cursor.close()
+        conn.close()
         await update.message.reply_text('Задача добавлена.')
-    except requests.exceptions.RequestException:
-        await update.message.reply_text('Ошибка добавления задачи.')
+    except Exception as e:
+        await update.message.reply_text(f'Ошибка: {str(e)}')
 
 # Команда /delete - удалить задачу по ID
 async def delete_task(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -90,12 +112,15 @@ async def delete_task(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
     task_id = context.args[0]
     try:
-        headers = {'Authorization': f'Bearer {session_token}'}
-        response = requests.post(f'{BASE_URL}/delete', json={'id': task_id}, headers=headers)
-        response.raise_for_status()
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM tasks WHERE id = %s AND user_id = %s", (task_id, session_token))
+        conn.commit()
+        cursor.close()
+        conn.close()
         await update.message.reply_text('Задача удалена.')
-    except requests.exceptions.RequestException:
-        await update.message.reply_text('Ошибка удаления задачи.')
+    except Exception as e:
+        await update.message.reply_text(f'Ошибка: {str(e)}')
 
 # Установка команд в меню Telegram
 async def set_commands(application):
